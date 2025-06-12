@@ -4,16 +4,52 @@ $mysqli = new mysqli("localhost", "root", "", "eventos_culturales_cusco");
 if ($mysqli->connect_errno) {
     die("Error de conexión: " . $mysqli->connect_error);
 }
-// Consulta para obtener eventos aprobados y su categoría
+
+// Obtener filtros desde GET
+$keyword = isset($_GET['keyword']) ? trim($_GET['keyword']) : '';
+$categoria = isset($_GET['categoria']) ? intval($_GET['categoria']) : 0;
+$estado = isset($_GET['estado']) ? $_GET['estado'] : '';
+
+// Obtener categorías para el filtro
+$categorias_rs = $mysqli->query("SELECT id, nombre FROM categorias ORDER BY nombre");
+
+// Construir consulta dinámica
+$where = "e.estado = 'aprobado'";
+$params = [];
+
+if ($keyword !== '') {
+    $where .= " AND (e.titulo LIKE ? OR e.descripcion LIKE ? OR e.lugar LIKE ?)";
+    $kw = "%$keyword%";
+    $params[] = $kw; $params[] = $kw; $params[] = $kw;
+}
+if ($categoria > 0) {
+    $where .= " AND ec.id_categoria = ?";
+    $params[] = $categoria;
+}
+if ($estado !== '' && in_array($estado, ['pendiente','aprobado','rechazado'])) {
+    $where .= " AND e.estado = ?";
+    $params[] = $estado;
+}
+
 $query = "
     SELECT e.*, c.nombre AS categoria
     FROM eventos e
     LEFT JOIN evento_categoria ec ON e.id = ec.id_evento
     LEFT JOIN categorias c ON ec.id_categoria = c.id
-    WHERE e.estado = 'aprobado'
+    WHERE $where
     ORDER BY e.fecha_evento ASC, e.hora_evento ASC
 ";
-$result = $mysqli->query($query);
+
+$stmt = $mysqli->prepare($query);
+
+// Vincular parámetros si hay filtros
+if ($params) {
+    $types = str_repeat('s', count($params));
+    $stmt->bind_param($types, ...$params);
+}
+
+$stmt->execute();
+$result = $stmt->get_result();
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -199,9 +235,23 @@ $result = $mysqli->query($query);
                 <a href="#">CALENDARIO</a>
                 <a href="#">DIRECTORIO</a>
                 <a href="#">TOURS</a>
-                <!-- Buscador -->
-                <form class="d-flex ms-3" role="search" id="buscador-form" onsubmit="return false;">
-                    <input class="form-control form-control-sm me-2" type="search" placeholder="Buscar eventos..." aria-label="Buscar" id="buscador-input" style="min-width:140px;">
+                <!-- Buscador y filtros -->
+                <form class="d-flex ms-3" role="search" id="buscador-form" method="get" action="index.php">
+                    <input class="form-control form-control-sm me-2" type="search" placeholder="Buscar eventos..." aria-label="Buscar" id="buscador-input" name="keyword" value="<?= htmlspecialchars($keyword) ?>" style="min-width:140px;">
+                    <select class="form-select form-select-sm me-2" name="categoria">
+                        <option value="0">Todas las categorías</option>
+                        <?php while($cat = $categorias_rs->fetch_assoc()): ?>
+                            <option value="<?= $cat['id'] ?>" <?= $categoria == $cat['id'] ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($cat['nombre']) ?>
+                            </option>
+                        <?php endwhile; ?>
+                    </select>
+                    <select class="form-select form-select-sm me-2" name="estado">
+                        <option value="">Todos los estados</option>
+                        <option value="aprobado" <?= $estado == 'aprobado' ? 'selected' : '' ?>>Aprobado</option>
+                        <option value="pendiente" <?= $estado == 'pendiente' ? 'selected' : '' ?>>Pendiente</option>
+                        <option value="rechazado" <?= $estado == 'rechazado' ? 'selected' : '' ?>>Rechazado</option>
+                    </select>
                     <button class="btn btn-outline-danger btn-sm" type="submit">Buscar</button>
                 </form>
             </nav>
@@ -238,14 +288,24 @@ $result = $mysqli->query($query);
                 </div>
             </div>
             <!-- Contenido central -->
-            <div class="col-lg-6 mb-4">
+            <div class="col-lg-6 mb-4" style="max-height: 80vh; overflow-y: auto;">
                 <nav class="mb-2" style="font-size:0.95rem;">
                     <span>HOME</span> / <span>CALENDARIO</span>
                 </nav>
+                <!-- Mostrar filtros activos -->
+                <?php if ($keyword || $categoria || $estado): ?>
+                <div class="mb-2">
+                    <span class="badge bg-secondary">Filtros:</span>
+                    <?php if ($keyword): ?><span class="badge bg-info text-dark">Palabra: <?= htmlspecialchars($keyword) ?></span><?php endif; ?>
+                    <?php if ($categoria): ?><span class="badge bg-info text-dark">Categoría: <?= htmlspecialchars($mysqli->query("SELECT nombre FROM categorias WHERE id=$categoria")->fetch_row()[0] ?? '') ?></span><?php endif; ?>
+                    <?php if ($estado): ?><span class="badge bg-info text-dark">Estado: <?= htmlspecialchars($estado) ?></span><?php endif; ?>
+                    <a href="index.php" class="badge bg-danger text-white text-decoration-none">Limpiar filtros</a>
+                </div>
+                <?php endif; ?>
                 <!-- Eventos principales -->
                 <div id="eventos-container">
                 <?php if ($result && $result->num_rows > 0): ?>
-                    <?php while($evento = $result->fetch_assoc()): ?>
+                    <?php foreach ($result as $evento): ?>
                         <div class="event-row">
                             <div class="flex-grow-1">
                                 <div class="event-title"><?php echo htmlspecialchars($evento['titulo']); ?></div>
@@ -265,7 +325,7 @@ $result = $mysqli->query($query);
                                 <img src="imagenes/evento_default.jpg" alt="Evento" class="event-img">
                             <?php endif; ?>
                         </div>
-                    <?php endwhile; ?>
+                    <?php endforeach; ?>
                 <?php else: ?>
                     <div class="alert alert-info">No hay eventos disponibles.</div>
                 <?php endif; ?>
@@ -296,7 +356,7 @@ $result = $mysqli->query($query);
     <div class="modal fade" id="loginModal" tabindex="-1" aria-labelledby="loginModalLabel" aria-hidden="true">
       <div class="modal-dialog">
         <div class="modal-content">
-          <form id="login-form">
+          <form id="login-form" method="post" action="login.php" autocomplete="off">
             <div class="modal-header">
               <h5 class="modal-title" id="loginModalLabel">Iniciar Sesión</h5>
               <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
@@ -316,20 +376,6 @@ $result = $mysqli->query($query);
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // Buscador de eventos por palabra clave (título, categoría, etc.)
-        document.getElementById('buscador-form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const keyword = document.getElementById('buscador-input').value.trim().toLowerCase();
-            const eventos = Array.from(document.querySelectorAll('#eventos-container .event-row'));
-            eventos.forEach(ev => {
-                const texto = ev.innerText.toLowerCase();
-                if (texto.includes(keyword)) {
-                    ev.style.display = '';
-                } else {
-                    ev.style.display = 'none';
-                }
-            });
-        });
-
         // Login funcional
         document.getElementById('login-form').addEventListener('submit', async function(e) {
             e.preventDefault();

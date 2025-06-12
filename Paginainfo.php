@@ -107,43 +107,37 @@ $evento = $result && $result->num_rows > 0 ? $result->fetch_assoc() : null;
                 Ubicación del evento
             </div>
             <div class="card-body">
-                <?php if (!empty($evento['lugar'])): ?>
+                <?php
+                $lat = isset($evento['latitud']) ? $evento['latitud'] : '';
+                $lng = isset($evento['longitud']) ? $evento['longitud'] : '';
+                if ($lat && $lng): ?>
                     <div id="mapa-ubicacion" style="width:100%;height:300px;border-radius:8px;"></div>
                 <?php else: ?>
-                    <div class="alert alert-info mb-0">No hay información de ubicación disponible.</div>
+                    <div class="alert alert-info mb-0">No se encontró mapa para este evento.</div>
                 <?php endif; ?>
             </div>
         </div>
-
         <a href="index.php" class="btn btn-secondary">&laquo; Volver al inicio</a>
     <?php else: ?>
         <div class="alert alert-warning text-center">No se encontró el evento.</div>
     <?php endif; ?>
 </div>
 
-<?php if ($evento && !empty($evento['lugar'])): ?>
-<!-- Google Maps API (requiere clave válida) -->
-<script src="https://maps.googleapis.com/maps/api/js?key=TU_API_KEY&callback=initMap" async defer></script>
+<?php if ($evento && $lat && $lng): ?>
+<!-- Leaflet.js y OpenStreetMap -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
-function initMap() {
-    var geocoder = new google.maps.Geocoder();
-    var address = <?= json_encode($evento['lugar']) ?>;
-    var map = new google.maps.Map(document.getElementById('mapa-ubicacion'), {
-        zoom: 15,
-        center: {lat: -13.53195, lng: -71.967463} // Centro de Cusco por defecto
-    });
-    geocoder.geocode({ 'address': address + ', Cusco, Perú' }, function(results, status) {
-        if (status === 'OK') {
-            map.setCenter(results[0].geometry.location);
-            new google.maps.Marker({
-                map: map,
-                position: results[0].geometry.location
-            });
-        } else {
-            document.getElementById('mapa-ubicacion').innerHTML = '<div class="alert alert-warning">No se pudo mostrar el mapa para esta dirección.</div>';
-        }
-    });
-}
+document.addEventListener("DOMContentLoaded", function() {
+    var lat = parseFloat(<?= json_encode($lat) ?>);
+    var lng = parseFloat(<?= json_encode($lng) ?>);
+    var map = L.map('mapa-ubicacion').setView([lat, lng], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap'
+    }).addTo(map);
+    L.marker([lat, lng]).addTo(map);
+});
 </script>
 <?php endif; ?>
 </body>
