@@ -1,3 +1,20 @@
+<?php
+// Conexión a la base de datos
+$mysqli = new mysqli("localhost", "root", "", "eventos_culturales_cusco");
+if ($mysqli->connect_errno) {
+    die("Error de conexión: " . $mysqli->connect_error);
+}
+// Consulta para obtener eventos aprobados y su categoría
+$query = "
+    SELECT e.*, c.nombre AS categoria
+    FROM eventos e
+    LEFT JOIN evento_categoria ec ON e.id = ec.id_evento
+    LEFT JOIN categorias c ON ec.id_categoria = c.id
+    WHERE e.estado = 'aprobado'
+    ORDER BY e.fecha_evento ASC, e.hora_evento ASC
+";
+$result = $mysqli->query($query);
+?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -227,33 +244,31 @@
                 </nav>
                 <!-- Eventos principales -->
                 <div id="eventos-container">
-                    <div class="event-row">
-                        <div class="flex-grow-1">
-                            <div class="event-title">Desfile de Alegorías de la Universidad de Arte</div>
-                            <div class="event-date">19 Junio 2025 | 12:00 AM</div>
-                            <div class="event-cat">Festividad</div>
-                            <a href="#" class="event-link">Leer más &raquo;</a>
+                <?php if ($result && $result->num_rows > 0): ?>
+                    <?php while($evento = $result->fetch_assoc()): ?>
+                        <div class="event-row">
+                            <div class="flex-grow-1">
+                                <div class="event-title"><?php echo htmlspecialchars($evento['titulo']); ?></div>
+                                <div class="event-date">
+                                    <?php
+                                        $fecha = date("d M Y", strtotime($evento['fecha_evento']));
+                                        $hora = $evento['hora_evento'] ? date("h:i A", strtotime($evento['hora_evento'])) : '';
+                                        echo $fecha . ($hora ? " | $hora" : "");
+                                    ?>
+                                </div>
+                                <div class="event-cat"><?php echo htmlspecialchars($evento['categoria'] ?? 'Sin categoría'); ?></div>
+                                <a href="paginainfo.php?id=<?php echo $evento['id']; ?>" class="event-link">Saber más &raquo;</a>
+                            </div>
+                            <?php if (!empty($evento['imagen'])): ?>
+                                <img src="<?php echo htmlspecialchars($evento['imagen']); ?>" alt="<?php echo htmlspecialchars($evento['titulo']); ?>" class="event-img">
+                            <?php else: ?>
+                                <img src="imagenes/evento_default.jpg" alt="Evento" class="event-img">
+                            <?php endif; ?>
                         </div>
-                        <img src="imagenes/evento1.jpg" alt="Desfile de Alegorías" class="event-img">
-                    </div>
-                    <div class="event-row">
-                        <div class="flex-grow-1">
-                            <div class="event-title">Corpus Christi Cusqueño</div>
-                            <div class="event-date">19 Junio 2025 | 11:00 AM</div>
-                            <div class="event-cat">Festividad</div>
-                            <a href="#" class="event-link">Leer más &raquo;</a>
-                        </div>
-                        <img src="imagenes/evento2.jpg" alt="Corpus Christi" class="event-img">
-                    </div>
-                    <div class="event-row">
-                        <div class="flex-grow-1">
-                            <div class="event-title">Inti Raymi</div>
-                            <div class="event-date">24 Junio 2025 | 12:00 AM</div>
-                            <div class="event-cat">Festividad</div>
-                            <a href="#" class="event-link">Leer más &raquo;</a>
-                        </div>
-                        <img src="imagenes/evento3.jpg" alt="Inti Raymi" class="event-img">
-                    </div>
+                    <?php endwhile; ?>
+                <?php else: ?>
+                    <div class="alert alert-info">No hay eventos disponibles.</div>
+                <?php endif; ?>
                 </div>
             </div>
             <!-- Sidebar derecho -->
