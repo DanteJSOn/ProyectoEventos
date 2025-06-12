@@ -1,0 +1,83 @@
+.panel{
+    max-width: 800px;
+    padding: 20px;
+    margin: auto;
+    background: gainsboro;
+}
+.text-center{
+    text-align:center;
+    color:  #ff8c00;
+
+}
+table{ width: 100%;}
+table,tr,td{
+    border: 1px solid tan;
+}
+.btn{
+    background: #ff8c00;
+    color: rgb(222, 99, 6);
+    padding: 10px 20px;
+    display: inline-block;
+    text-decoration: none;
+}
+/* Estilos generales */
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+header {
+    background-color: #333;
+    color: #05e923;
+    padding: 20px;
+    text-align: center;
+}
+
+nav ul {
+    list-style-type: none;
+    padding: 0;
+}
+
+nav ul li {
+    display: inline;
+    margin-right: 20px;
+}
+
+nav ul li a {
+    color: black;
+    text-decoration: none;
+}
+
+section {
+    margin: 20px;
+}
+
+section h2 {
+    color: #333;
+}
+
+button {
+    background-color: #00d9ff;
+    color: #bc0b9e;
+    border: none;
+    padding: 10px 20px;
+    margin-right: 10px;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+button:hover {
+    background-color: #b30000;
+}
+
+/* Estilos específicos para botones dentro de la sección de CRUDS */
+header nav ul li a,
+section button {
+    background-color: #ff8c00;
+}
+
+header nav ul li a:hover,
+section button:hover {
+    background-color: #3200a5;
+}
